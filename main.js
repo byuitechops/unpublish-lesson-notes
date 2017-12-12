@@ -1,28 +1,66 @@
 /*eslint-env node, es6*/
+/* Unpublish all module items that are lesson notes in canvas */
 
-/* Module Description */
-
-/* Put dependencies here */
-
-/* Include this line only if you are going to use Canvas API */
-// const canvas = require('canvas-wrapper');
-
-/* View available course object functions */
-// https://github.com/byuitechops/d2l-to-canvas-conversion-tool/blob/master/documentation/classFunctions.md
+const async = require('async'),
+    canvas = require('canvas-wrapper');
 
 module.exports = (course, stepCallback) => {
-    /* Create the module report so that we can access it later as needed.
-    This MUST be done at the beginning of each child module. */
-    course.addModuleReport('moduleName');
+    var courseId = course.info.canvasOU,
+        moduleUrl = 'api/v1/courses/' + courseId + 'modules/';
+    course.addModuleReport('unpublish-lesson-notes');
 
-    /* Used to log successful actions */
-    course.success('moduleName', 'moduleName successfully ...');
+    function getAllModules(moduleUrl) {
+        var allModules = canvas.get(moduleUrl, function (err, modules) {
+            if (err) {
+                console.log('ERROR', err);
+                return;
+            }
+            return modules;
+        });
+        return allModules;
+        course.success('unpublish-lesson-notes', 'successfully retrieved modules')
+    }
 
-    /* How to report an error (Replace "moduleName") */
-    // course.throwErr('moduleName', e);
+    /*not entirely sure how to make this use allModules...*/
+    function getModuleItems(allModules) {
+        var moduleId = module.id,
+            moduleItemUrl = 'api/v1/courses/' + courseId + 'modules/' + moduleId + '/items?search_term=lesson%20notes',
+            lessonNotes = canvas.get(moduleItemUrl, function (err, items) {
+                if (err) {
+                    console.log('ERROR', err);
+                    return;
+                }
+                return items;
+            })
+        return lessonNotes;
+        course.success('unpublish-lesson-notes', 'successfully retrieved module items')
+    }
 
-    /* You should never call the stepCallback with an error. We want the
-    whole program to run when testing so we can catch all existing errors */
 
+    function changeLessonNotes(lessonNotes, moduleId) {
+        var unpublish = {
+                module_item[published]: false
+            },
+            unpublishedPages = lessonNotes.forEach(function (file) {
+                //I've never used put before..?
+                canvas.put(moduleItemUrl, unpublish, function (err, body) {
+                    var fileId = file.id,
+                        itemId = 'api/v1/courses/' + courseId + 'modules/' + moduleId + '/items/' + fileId;
+                    if (err) {
+                        console.log('ERROR', err)
+                        return;
+                    }
+                    return body;
+                })
+            });
+        course.success('unpublish-lesson-notes', 'successfully unpublished Lesson Notes')
+        return unpublishedPages;
+    }
+
+    async.waterfall([getAllModules, getModuleItems, changeLessonNotes], function (err, result) {
+        if (err) {
+            course.throwErr('unpublish-lesson-notes', err)
+        }
+    })
     stepCallback(null, course);
 };
